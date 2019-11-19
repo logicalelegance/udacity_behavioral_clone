@@ -34,15 +34,19 @@ def generator(samples, batch_size=32):
                 name = './IMG/'+batch_sample[0].split('/')[-1]
                 center_image = cv2.imread(name)
                 center_angle = float(batch_sample[3])
+           #     center_image_flipped = np.fliplr(center_image)
+           #     center_angle_flipped = -center_angle
                 images.append(center_image)
                 angles.append(center_angle)
+           #     images.append(center_image_flipped)
+           #     angles.append(center_angle_flipped)
 
             X_train = np.array(images)
             y_train = np.array(angles)
             yield sklearn.utils.shuffle(X_train, y_train)
 
-# Set our batch size
-batch_size=32
+# Set our batch size, sized to use up available memory on laptop
+batch_size=512
 
 # compile and train the model using the generator function
 train_generator = generator(train_samples, batch_size=batch_size)
@@ -55,19 +59,23 @@ model.add(Lambda(lambda x: x/127.5 - 1.,
         input_shape=(160, 320, 3),
         output_shape=(160, 320, 3)))
 model.add(Cropping2D(cropping=((65,25), (0,0)), input_shape=(160,320,3)))
-model.add(Convolution2D(6,(5,5), activation='elu'))
-model.add(MaxPooling2D())
-model.add(Convolution2D(6,(5,5), activation='elu'))
-model.add(MaxPooling2D())
+model.add(Convolution2D(24,(5,5), subsample=(2,2), activation='relu'))
+model.add(Convolution2D(36,(5,5), subsample=(2,2),  activation='relu'))
+model.add(Convolution2D(48,(5,5), subsample=(2,2), activation='relu'))
+model.add(Convolution2D(64,(3,3), activation='relu'))
+model.add(Convolution2D(64,(3,3), activation='relu'))
 model.add(Flatten())
-model.add(Dense(120))
+model.add(Dense(100))
+model.add(Dense(50))
 model.add(Dropout(0.5))
-model.add(Dense(84))
+model.add(Dense(10))
 model.add(Dense(1))
 
 model.compile(loss='mse', optimizer='adam')
+
+# step size is *2 to account for augmentation
 model.fit_generator(train_generator,
-            steps_per_epoch=ceil(len(train_samples)/batch_size),
+            steps_per_epoch=ceil(len(train_samples)/batch_size), 
             validation_data=validation_generator,
             validation_steps=ceil(len(validation_samples)/batch_size),
             epochs=5, verbose=1, use_multiprocessing=True)
